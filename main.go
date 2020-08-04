@@ -58,6 +58,11 @@ func main() {
 			Usage: "Password to use when connecting to the server",
 			Value: cfg.Redis.Password,
 		},
+		&cli.StringFlag{
+			Name:  "data-dir",
+			Usage: "Data dir",
+			Value: cfg.DataDir,
+		},
 		&cli.BoolFlag{
 			Name:  "v",
 			Usage: "Verbose",
@@ -96,6 +101,9 @@ func runCmd(ctx *cli.Context) error {
 	}
 	if s := ctx.String("redis.password"); len(s) > 0 {
 		cfg.Redis.Password = s
+	}
+	if s := ctx.String("data-dir"); len(s) > 0 {
+		cfg.DataDir = s
 	}
 
 	log.Printf("config: %+v\n", cfg)

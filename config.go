@@ -15,6 +15,7 @@ type Config struct {
 	Interval    int
 	Mirror      string
 	Verbose     bool
+	DataDir     string
 }
 
 var cfg = Config{
@@ -28,6 +29,7 @@ var cfg = Config{
 	Timeout:     30 * time.Second,
 	Interval:    60,
 	Mirror:      "https://packagist.org",
+	DataDir:     "./data",
 }
 
 func (cfg *Config) getMainUrl() string {

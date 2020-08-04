@@ -41,11 +41,11 @@ type SaveMetadata struct {
 }
 
 func run(cfg Config) (err error) {
-	if err = fileGetContents("404.json", &Error404Data); err != nil {
+	if err = fileGetContents(cfg.DataDir+"/404.json", &Error404Data); err != nil {
 		return
 	}
 
-	if err = fileGetContents("dist.json", &DistData); err != nil {
+	if err = fileGetContents(cfg.DataDir+"/dist.json", &DistData); err != nil {
 		return
 	}
 
@@ -70,11 +70,11 @@ func run(cfg Config) (err error) {
 	}
 	wg.Wait()
 
-	if err = filePutContents("404.json", Error404Data); err != nil {
+	if err = filePutContents(cfg.DataDir+"/404.json", Error404Data); err != nil {
 		return
 	}
 
-	if err = filePutContents("dist.json", DistData); err != nil {
+	if err = filePutContents(cfg.DataDir+"/dist.json", DistData); err != nil {
 		return
 	}
 
