@@ -1,0 +1,58 @@
+{
+  "last-update": "2020-08-04 17:12:59",
+  "list": "https://packagist.org/packages/list.json",
+  "metadata-url": "/composer/p2/%package%.json",
+  "mirrors": [
+    {
+      "dist-url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
+      "preferred": true
+    }
+  ],
+  "notify": "https://packagist.org/downloads/%package%",
+  "notify-batch": "https://packagist.org/downloads/",
+  "packages": [],
+  "provider-includes": {
+    "p/provider-2013$%hash%.json": {
+      "sha256": "04542b01d31a9ffa89744955aadb4d7cfe7bca61e1794406582cae4ed31fbb52"
+    },
+    "p/provider-2014$%hash%.json": {
+      "sha256": "fabf058cd8c9cb3625f7d0a140d458f397f32928d99d9126c71716cae47b6668"
+    },
+    "p/provider-2015$%hash%.json": {
+      "sha256": "76f245d39949329a75eae06c3b66b449c93d786654180ea6888e82d7b2d11e9c"
+    },
+    "p/provider-2016$%hash%.json": {
+      "sha256": "8881f7d5a167074ecb8fb439ad457be90e4be230c4a614ffc4645844f1d61dc4"
+    },
+    "p/provider-2017$%hash%.json": {
+      "sha256": "bc6fe1b1f5865dc9467bbf5e8a2a48b173c818bfd79b04284ca282416729bd1a"
+    },
+    "p/provider-2018$%hash%.json": {
+      "sha256": "8af4976a5990f4a7433286afab41f20f542cea6a7d7da8360b9abddf6f354595"
+    },
+    "p/provider-2019$%hash%.json": {
+      "sha256": "5f1b47633f744504676486e14bea154e45e9b33b4c0ec6df559d86f8881531d9"
+    },
+    "p/provider-2019-10$%hash%.json": {
+      "sha256": "b017fc2e63ca3724613b494f9abe8ae4a5fe663b94c87614e7cbc5d73f5fe8ce"
+    },
+    "p/provider-2020-01$%hash%.json": {
+      "sha256": "0d3daf7d34c6a6e8f39c297239c56202a780cb1db4a50f43284a0599aa96d754"
+    },
+    "p/provider-2020-04$%hash%.json": {
+      "sha256": "096b2167165c5a5fab5d4738a52c79524e29ccfd0ebe710cdc09d98403d95815"
+    },
+    "p/provider-2020-07$%hash%.json": {
+      "sha256": "be22e3b40507895bf18f57e8874dabbf8638535d7bead0be093bf2423b494f95"
+    },
+    "p/provider-archived$%hash%.json": {
+      "sha256": "c5841e9c85b140ee37238de894529b46ad54fb50fd16bee012c69da404ab79bd"
+    },
+    "p/provider-latest$%hash%.json": {
+      "sha256": "c519fd86ee136bc42ef1a1d99716a4a2529cbc25334b37f351dca6ccdfde070d"
+    }
+  },
+  "providers-api": "https://packagist.org/providers/%package%.json",
+  "providers-url": "/composer/p/%package%$%hash%.json",
+  "search": "https://packagist.org/search.json?q=%query%\u0026type=%type%"
+}

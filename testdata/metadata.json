@@ -1,0 +1,88 @@
+{
+  "packages": {
+    "ilaravel/core": [
+      {
+        "name": "ilaravel/core",
+        "description": "iLaravel Core",
+        "keywords": [
+          "manage",
+          "laravel"
+        ],
+        "homepage": "https://ilaravel.iamir.net",
+        "version": "1.1.0",
+        "version_normalized": "1.1.0.0",
+        "license": [
+          "MIT"
+        ],
+        "authors": [
+          {
+            "name": "iamirnet",
+            "email": "me@iamir.net",
+            "homepage": "https://iamir.net",
+            "role": "Developer"
+          }
+        ],
+        "source": {
+          "type": "git",
+          "url": "https://github.com/ilaravelpro/core.git",
+          "reference": "c9a2586865e227834e392fdf76263ac864324f08"
+        },
+        "dist": {
+          "type": "zip",
+          "url": "https://api.github.com/repos/ilaravelpro/core/zipball/c9a2586865e227834e392fdf76263ac864324f08",
+          "reference": "c9a2586865e227834e392fdf76263ac864324f08",
+          "shasum": ""
+        },
+        "type": "library",
+        "time": "2020-07-29T03:46:07+00:00",
+        "autoload": {
+          "psr-4": {
+            "App\\": "src/app",
+            "iLaravel\\Core\\": "src/"
+          },
+          "files": [
+            "src/helpers/helpers.php"
+          ]
+        },
+        "extra": {
+          "laravel": {
+            "providers": [
+              "iLaravel\\Core\\Providers\\AppServiceProvider",
+              "iLaravel\\Core\\Providers\\RouteServiceProvider",
+              "iLaravel\\Core\\Providers\\AuthServiceProvider"
+            ]
+          }
+        },
+        "require": {
+          "laravel/socialite": "^4.1.4",
+          "doctrine/dbal": "^2.9.2",
+          "laravel/passport": "^7.4",
+          "intervention/image": "^2.5"
+        },
+        "support": {
+          "source": "https://github.com/ilaravelpro/core/tree/1.1.0"
+        }
+      },
+      {
+        "version": "v1",
+        "version_normalized": "1.0.0.0",
+        "source": {
+          "type": "git",
+          "url": "https://github.com/ilaravelpro/core.git",
+          "reference": "f91d6b284c2d968e029b7ac2dbb495376cae5fae"
+        },
+        "dist": {
+          "type": "zip",
+          "url": "https://api.github.com/repos/ilaravelpro/core/zipball/f91d6b284c2d968e029b7ac2dbb495376cae5fae",
+          "reference": "f91d6b284c2d968e029b7ac2dbb495376cae5fae",
+          "shasum": ""
+        },
+        "time": "2020-07-21T08:42:32+00:00",
+        "support": {
+          "source": "https://github.com/ilaravelpro/core/tree/master"
+        }
+      }
+    ]
+  },
+  "minified": "composer/2.0"
+}
