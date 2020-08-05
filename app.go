@@ -247,10 +247,10 @@ func doWorker(cfg Config, mainpack *MainPackage, name, url, sum string) workpool
 			}
 
 			// provider
-			providersUrl := strings.ReplaceAll(strings.ReplaceAll(mainpack.ProvidersURL, "%package%", name), "%hash%", sum)
-			if err = filePutContents(cfg.DataDir+"/"+providersUrl, data); err != nil {
-				return nil
-			}
+			//providersUrl := strings.ReplaceAll(strings.ReplaceAll(mainpack.ProvidersURL, "%package%", name), "%hash%", sum)
+			//if err = filePutContents(cfg.DataDir+"/"+providersUrl, data); err != nil {
+			//	return nil
+			//}
 		}
 
 		var m Metadata
