@@ -30,9 +30,15 @@ GLOBAL OPTIONS:
    --mirror value          Mirror url (default: "https://packagist.org")
    --proxy value           Set proxy for request. eg: http://ip:port
    --timeout value         timeout (default: 30s)
-   --redis.host value      Redis server hostname (default: "127.0.0.1")
-   --redis.port value      Redis server port (default: 6379)
-   --redis.password value  Password to use when connecting to the server
+   --redis-host value      Redis server hostname (default: "127.0.0.1")
+   --redis-port value      Redis server port (default: 6379)
+   --redis-password value  Password to use when connecting to the server
+   --data-dir value        Data dir (default: "./data")
+   --dist-url value        dist url (default: "/dists/%package%/%reference%.%type%")
+   --metadata-url value    MetadataURL (default: "/p2/%package%.json")
+   --providers-url value   ProvidersURL (default: "/p/%package%$%hash%.json")
+   --dump                  dump all json (default: false)
    -v                      Verbose (default: false)
    --help, -h              show help (default: false)
+
 ```
