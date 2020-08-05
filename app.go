@@ -151,7 +151,6 @@ func processProvider(mainPack *MainPackage, cfg Config, providerUrl string) (err
 
 	wp := workpool.New(cfg.Concurrency)
 	lock404.Lock()
-	var i = 0
 	for name, h := range providerIncs.Providers {
 		if _, ok := Error404Data[name]; ok {
 			continue
@@ -165,10 +164,6 @@ func processProvider(mainPack *MainPackage, cfg Config, providerUrl string) (err
 		wp.Do(doWorker(cfg, name, mUrl, ""))
 		// providerIncs
 		wp.Do(doWorker(cfg, name, pUrl, h.SHA256))
-
-		if i++; i > 10 {
-			break
-		}
 	}
 	lock404.Unlock()
 	wp.Wait()
@@ -306,7 +301,6 @@ func doWorker(cfg Config, name, url, sum string) workpool.TaskHandler {
 			}
 		}
 
-		fmt.Println("--------cached: ", url)
 		DistData[name].Cached[url] = SaveCached{
 			ETag:         rsp.Header.Get("Etag"),
 			LastModified: rsp.Header.Get("Last-Modified"),
