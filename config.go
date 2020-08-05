@@ -1,6 +1,9 @@
 package main
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type Config struct {
 	Proxy string
@@ -42,4 +45,8 @@ var cfg = Config{
 
 func (cfg *Config) getMainUrl() string {
 	return cfg.Mirror + "/packages.json"
+}
+
+func (cfg *Config) fullUrl(path string) string {
+	return cfg.Mirror + "/" + strings.TrimLeft(path, "/")
 }

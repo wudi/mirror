@@ -34,9 +34,14 @@ var (
 )
 
 type SavePackage struct {
-	ETag         string                  `json:"etag"`
-	LastModified string                  `json:"lastModified"`
-	Metadata     map[string]SaveMetadata `json:"metadata"`
+	// File  =>  Cached Info
+	Cached   map[string]SaveCached   `json:"cached"`
+	Metadata map[string]SaveMetadata `json:"metadata"`
+}
+
+type SaveCached struct {
+	ETag         string `json:"etag"`
+	LastModified string `json:"lastModified"`
 }
 
 type SaveMetadata struct {
@@ -122,36 +127,48 @@ func run(cfg Config) (err error) {
 }
 
 func processProvider(mainPack *MainPackage, cfg Config, providerUrl string) (err error) {
-	var rsp *http.Response
-	rsp, err = http.Get(cfg.Mirror + providerUrl)
-	if err != nil {
+	var reader io.ReadCloser
+	var req *http.Request
+
+	if req, err = http.NewRequest(http.MethodGet, cfg.fullUrl(providerUrl), nil); err != nil {
 		return
 	}
-	defer rsp.Body.Close()
+
+	if _, reader, err = httpGet(cfg, req); err != nil {
+		return
+	}
+	defer reader.Close()
 
 	var data []byte
-	if data, err = ioutil.ReadAll(rsp.Body); err != nil {
+	if data, err = ioutil.ReadAll(reader); err != nil {
 		return
 	}
 
-	var provider Provider
-	if err = json.Unmarshal(data, &provider); err != nil {
+	var providerIncs ProviderIncludes
+	if err = json.Unmarshal(data, &providerIncs); err != nil {
 		return
 	}
-	names, urls, hashs := provider.PackageURLs(mainPack.MetadataURL)
 
-	log.Printf("provider: %s nums: %d\n", providerUrl, len(urls))
 	wp := workpool.New(cfg.Concurrency)
 	lock404.Lock()
-	for n, u := range urls {
-		name := names[n]
-		hash := hashs[n]
+	var i = 0
+	for name, h := range providerIncs.Providers {
 		if _, ok := Error404Data[name]; ok {
 			continue
 		}
-		Remaining.Add(1)
-		url := cfg.Mirror + u
-		wp.Do(doWorker(cfg, mainPack, name, url, hash))
+		Remaining.Add(2)
+
+		mUrl := strings.ReplaceAll(mainPack.MetadataURL, "%package%", name)
+		pUrl := strings.ReplaceAll(strings.ReplaceAll(mainPack.ProvidersURL, "%package%", name), "%hash%", h.SHA256)
+
+		// metadata
+		wp.Do(doWorker(cfg, name, mUrl, ""))
+		// providerIncs
+		wp.Do(doWorker(cfg, name, pUrl, h.SHA256))
+
+		if i++; i > 10 {
+			break
+		}
 	}
 	lock404.Unlock()
 	wp.Wait()
@@ -165,7 +182,7 @@ func processProvider(mainPack *MainPackage, cfg Config, providerUrl string) (err
 	return nil
 }
 
-func doWorker(cfg Config, mainpack *MainPackage, name, url, sum string) workpool.TaskHandler {
+func doWorker(cfg Config, name, url, sum string) workpool.TaskHandler {
 	return func() error {
 		start := time.Now()
 
@@ -185,18 +202,21 @@ func doWorker(cfg Config, mainpack *MainPackage, name, url, sum string) workpool
 		var rsp *http.Response
 		var req *http.Request
 		var reader io.ReadCloser
-		if req, err = http.NewRequest("GET", url, nil); err != nil {
+		if req, err = http.NewRequest("GET", cfg.fullUrl(url), nil); err != nil {
 			return nil
 		}
 
 		lockDist.Lock()
+		// Cached
 		if v, ok := DistData[name]; ok {
-			if v.ETag != "" {
-				req.Header.Set("If-None-Match", v.ETag)
-			}
+			if cached, ok := v.Cached[url]; ok {
+				if cached.ETag != "" {
+					req.Header.Set("If-None-Match", cached.ETag)
+				}
 
-			if v.LastModified != "" {
-				req.Header.Set("If-Modified-Since", v.LastModified)
+				if cached.LastModified != "" {
+					req.Header.Set("If-Modified-Since", cached.LastModified)
+				}
 			}
 		}
 		lockDist.Unlock()
@@ -233,29 +253,40 @@ func doWorker(cfg Config, mainpack *MainPackage, name, url, sum string) workpool
 		}
 
 		// checksum
-		//if !sha256Checksum(data, sum) {
-		//	log.Printf("%s sha256 check failed. expect: %s", url, sum)
-		//	// Do nothing
-		//	return nil
-		//}
-
-		if cfg.Dump {
-			// metadata
-			metadataFile := strings.ReplaceAll(mainpack.MetadataURL, "%package%", name)
-			if err = filePutContents(cfg.DataDir+"/"+metadataFile, data); err != nil {
+		if len(sum) > 0 {
+			if !sha256Checksum(data, sum) {
+				log.Printf("%s sha256 check failed. expect: %s", url, sum)
+				// Do nothing
 				return nil
 			}
+		}
 
-			// provider
-			//providersUrl := strings.ReplaceAll(strings.ReplaceAll(mainpack.ProvidersURL, "%package%", name), "%hash%", sum)
-			//if err = filePutContents(cfg.DataDir+"/"+providersUrl, data); err != nil {
-			//	return nil
-			//}
+		if cfg.Dump {
+			if err = filePutContents(cfg.DataDir+url, data); err != nil {
+				return nil
+			}
 		}
 
 		var m Metadata
-		if err = json.Unmarshal(data, &m); err != nil {
-			return nil
+
+		if len(sum) == 0 {
+			if err = json.Unmarshal(data, &m); err != nil {
+				log.Printf("ERROR %s => %s\n", url, err)
+				return nil
+			}
+		} else {
+			var p Provider
+			if err = json.Unmarshal(data, &p); err != nil {
+				log.Printf("ERROR %s => %s\n", url, err)
+				return nil
+			}
+
+			m.Packages = map[string][]Package{}
+			if v, ok := p.Packages[name]; ok {
+				for _, v2 := range v {
+					m.Packages[name] = append(m.Packages[name], v2)
+				}
+			}
 		}
 
 		var pkgs []Package
@@ -270,18 +301,25 @@ func doWorker(cfg Config, mainpack *MainPackage, name, url, sum string) workpool
 
 		if _, ok := DistData[name]; !ok {
 			DistData[name] = SavePackage{
-				ETag:         rsp.Header.Get("Etag"),
-				LastModified: rsp.Header.Get("Last-Modified"),
-				Metadata:     map[string]SaveMetadata{},
+				Cached:   map[string]SaveCached{},
+				Metadata: map[string]SaveMetadata{},
 			}
 		}
 
+		fmt.Println("--------cached: ", url)
+		DistData[name].Cached[url] = SaveCached{
+			ETag:         rsp.Header.Get("Etag"),
+			LastModified: rsp.Header.Get("Last-Modified"),
+		}
+
 		for _, pkg := range pkgs {
-			if pkg.Dist != nil && pkg.Dist.Type != "" {
-				DistData[name].Metadata[pkg.Dist.Reference] = SaveMetadata{
-					URL:  pkg.Dist.URL,
-					Type: pkg.Dist.Type,
-				}
+			if pkg.Dist == nil || pkg.Dist.Type == "" {
+				continue
+			}
+
+			DistData[name].Metadata[pkg.Dist.Reference] = SaveMetadata{
+				URL:  pkg.Dist.URL,
+				Type: pkg.Dist.Type,
 			}
 		}
 
@@ -398,15 +436,15 @@ func saveDistData(cfg Config) (err error) {
 	defer client.Close()
 
 	for name, dist := range DistData {
-		values := map[string]interface{}{
-			"etag":         dist.ETag,
-			"lastModified": dist.LastModified,
+		if len(dist.Metadata) == 0 {
+			continue
 		}
+		values := make(map[string]interface{}, len(dist.Metadata))
 		for v, meta := range dist.Metadata {
 			s, _ := json.Marshal(meta)
 			values[v] = string(s)
 		}
-		if err = client.HMSet(name, values).Err(); err != nil {
+		if err = client.HSet(name, values).Err(); err != nil {
 			return
 		}
 	}

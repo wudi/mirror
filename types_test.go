@@ -40,7 +40,7 @@ func TestProvider(t *testing.T) {
 	b, err := ioutil.ReadFile("testdata/provider.json")
 	assert.NoError(t, err)
 
-	var p Provider
+	var p ProviderIncludes
 	err = json.Unmarshal(b, &p)
 	assert.NoError(t, err)
 

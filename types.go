@@ -27,7 +27,7 @@ type Mirror struct {
 }
 
 // https://packagist.org/p/provider-2013$04542b01d31a9ffa89744955aadb4d7cfe7bca61e1794406582cae4ed31fbb52.json
-type Provider struct {
+type ProviderIncludes struct {
 	Providers map[string]struct {
 		SHA256 string `json:"sha256"`
 	} `json:"providers"`
@@ -36,6 +36,10 @@ type Provider struct {
 type Metadata struct {
 	Packages map[string][]Package `json:"packages"`
 	Minified string               `json:"minified,omitempty"`
+}
+
+type Provider struct {
+	Packages map[string]map[string]Package `json:"packages"`
 }
 
 // Ref: https://getcomposer.org/doc/04-schema.md
@@ -80,7 +84,7 @@ func (p *MainPackage) ProviderIncludeURLs() (urls []string) {
 	return
 }
 
-func (p *Provider) PackageURLs(metadataURL string) (names []string, urls []string, hashs []string) {
+func (p *ProviderIncludes) PackageURLs(metadataURL string) (names []string, urls []string, hashs []string) {
 	for name, h := range p.Providers {
 		u := strings.ReplaceAll(metadataURL, "%package%", name)
 		urls = append(urls, u)
