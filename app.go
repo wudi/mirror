@@ -233,11 +233,11 @@ func doWorker(cfg Config, mainpack *MainPackage, name, url, sum string) workpool
 		}
 
 		// checksum
-		if !sha256Checksum(data, sum) {
-			log.Printf("%s sha256 check failed. expect: %s", url, sum)
-			// Do nothing
-			return nil
-		}
+		//if !sha256Checksum(data, sum) {
+		//	log.Printf("%s sha256 check failed. expect: %s", url, sum)
+		//	// Do nothing
+		//	return nil
+		//}
 
 		if cfg.Dump {
 			// metadata
