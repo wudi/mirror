@@ -89,14 +89,17 @@ func run(cfg Config) (err error) {
 	wg.Wait()
 
 	if err = saveDistData(cfg); err != nil {
+		log.Printf("saveDistData err: %s\n", err)
 		return
 	}
 
 	if err = filePutContents(cfg.DataDir+"/404.json", Error404Data); err != nil {
+		log.Printf("filePutContents 404.json err: %s\n", err)
 		return
 	}
 
 	if err = filePutContents(cfg.DataDir+"/dist.json", DistData); err != nil {
+		log.Printf("filePutContents dist.json err: %s\n", err)
 		return
 	}
 
@@ -110,6 +113,7 @@ func run(cfg Config) (err error) {
 	mainPack.ProvidersURL = cfg.ProvidersURL
 	mainPack.Time = time.Now()
 	if err = filePutContents(cfg.DataDir+"/packages.json", mainPack); err != nil {
+		log.Printf("filePutContents packages.json err: %s\n", err)
 		return
 	}
 
@@ -371,6 +375,8 @@ func filePutContents(file string, v interface{}) (err error) {
 }
 
 func saveDistData(cfg Config) (err error) {
+	log.Println("save dist to redis")
+
 	client := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
 		Password: cfg.Redis.Password,
