@@ -63,15 +63,15 @@ func run(cfg Config) (err error) {
 	}
 	incs := mainPack.ProviderIncludeURLs()
 
-	//go func() {
-	//	tk := time.NewTicker(5 * time.Second)
-	//	for {
-	//		select {
-	//		case <-tk.C:
-	//			log.Printf("remaining tasks: %d\n", Remaining.Load())
-	//		}
-	//	}
-	//}()
+	go func() {
+		tk := time.NewTicker(5 * time.Second)
+		for {
+			select {
+			case <-tk.C:
+				log.Printf("remaining tasks: %d\n", Remaining.Load())
+			}
+		}
+	}()
 
 	var wg sync.WaitGroup
 	wg.Add(len(incs))
@@ -140,8 +140,6 @@ func processProvider(mainPack *MainPackage, cfg Config, providerUrl string) (err
 	names, urls, hashs := provider.PackageURLs(mainPack.MetadataURL)
 
 	log.Printf("provider: %s nums: %d\n", providerUrl, len(urls))
-	Remaining.Add(int32(len(urls)))
-
 	wp := workpool.New(30)
 	lock404.Lock()
 	for n, u := range urls {
@@ -150,6 +148,7 @@ func processProvider(mainPack *MainPackage, cfg Config, providerUrl string) (err
 		if _, ok := Error404Data[name]; ok {
 			continue
 		}
+		Remaining.Add(1)
 		url := cfg.Mirror + u
 		wp.Do(doWorker(cfg, mainPack, name, url, hash))
 	}
