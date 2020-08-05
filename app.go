@@ -81,7 +81,7 @@ func run(cfg Config) (err error) {
 				wg.Done()
 				log.Printf("DONE %s\n", u)
 			}()
-			if z := processProvider(mainPack, cfg, u); err != nil {
+			if err := processProvider(mainPack, cfg, u); err != nil {
 				log.Println(err)
 			}
 		}(u)
