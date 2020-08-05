@@ -81,7 +81,7 @@ func run(cfg Config) (err error) {
 				wg.Done()
 				log.Printf("DONE %s\n", u)
 			}()
-			if err := processProvider(mainPack, cfg, u); err != nil {
+			if z := processProvider(mainPack, cfg, u); err != nil {
 				log.Println(err)
 			}
 		}(u)
@@ -140,7 +140,7 @@ func processProvider(mainPack *MainPackage, cfg Config, providerUrl string) (err
 	names, urls, hashs := provider.PackageURLs(mainPack.MetadataURL)
 	urls = urls[:10]
 
-	log.Printf("provider: %s nums: %d", providerUrl, len(urls))
+	log.Printf("provider: %s nums: %d\n", providerUrl, len(urls))
 	Remaining.Add(int32(len(urls)))
 
 	wp := workpool.New(30)
@@ -201,7 +201,7 @@ func doWorker(cfg Config, mainpack *MainPackage, name, url, hash string) workpoo
 		lockDist.Unlock()
 
 		if rsp, reader, err = httpGet(cfg, req); err != nil {
-			log.Printf("name: %s err: %s", name, err)
+			log.Printf("name: %s err: %s\n", name, err)
 			return nil
 		}
 		defer reader.Close()
@@ -307,7 +307,7 @@ func httpGet(cfg Config, req *http.Request) (rsp *http.Response, reader io.ReadC
 	for i := 0; i < cfg.Attempts; i++ {
 		if rsp, err = client.Do(req); err != nil {
 			n := backoff(i + 1)
-			log.Printf("%s backoff: %s", req.URL, n)
+			log.Printf("%s backoff: %s\n", req.URL, n)
 			time.Sleep(n)
 			continue
 		}
@@ -350,7 +350,7 @@ func filePutContents(file string, v interface{}) (err error) {
 	if p := strings.LastIndex(file, "/"); p > 0 {
 		path := file[0:p]
 		if _, err = os.Stat(path); os.IsNotExist(err) {
-			log.Printf("create directory: %s", path)
+			log.Printf("create directory: %s\n", path)
 			if err = os.MkdirAll(file[0:p], 0755); err != nil {
 				return err
 			}
