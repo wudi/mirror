@@ -7,14 +7,15 @@ import (
 )
 
 type MainPackage struct {
-	Mirrors          []Mirror `json:"mirrors"`
-	MetadataURL      string   `json:"metadata-url"`
-	Notify           string   `json:"notify"`
-	NotifyBatch      string   `json:"notify-batch"`
-	Search           string   `json:"search"`
-	List             string   `json:"list"`
-	ProvidersApi     string   `json:"providers-api"`
-	ProvidersURL     string   `json:"providers-url"`
+	Time             time.Time `json:"time"`
+	Mirrors          []Mirror  `json:"mirrors"`
+	MetadataURL      string    `json:"metadata-url"`
+	Notify           string    `json:"notify"`
+	NotifyBatch      string    `json:"notify-batch"`
+	Search           string    `json:"search"`
+	List             string    `json:"list"`
+	ProvidersApi     string    `json:"providers-api"`
+	ProvidersURL     string    `json:"providers-url"`
 	ProviderIncludes map[string]struct {
 		SHA256 string `json:"sha256"`
 	} `json:"provider-includes"`
@@ -79,11 +80,12 @@ func (p *MainPackage) ProviderIncludeURLs() (urls []string) {
 	return
 }
 
-func (p *Provider) PackageURLs(metadataURL string) (names []string, urls []string) {
-	for name := range p.Providers {
+func (p *Provider) PackageURLs(metadataURL string) (names []string, urls []string, hashs []string) {
+	for name, h := range p.Providers {
 		u := strings.ReplaceAll(metadataURL, "%package%", name)
 		urls = append(urls, u)
 		names = append(names, name)
+		hashs = append(hashs, h.SHA256)
 	}
 	return
 }

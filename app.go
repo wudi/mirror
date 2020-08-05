@@ -1,9 +1,11 @@
 package main
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"math"
@@ -13,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-redis/redis/v7"
 	"github.com/xxjwxc/gowp/workpool"
 	"go.uber.org/atomic"
 )
@@ -41,12 +44,17 @@ type SaveMetadata struct {
 }
 
 func run(cfg Config) (err error) {
-	if err = fileGetContents(cfg.DataDir+"/404.json", &Error404Data); err != nil {
-		return
+
+	if _, err = os.Stat(cfg.DataDir + "/404.json"); err == nil {
+		if err = fileGetContents(cfg.DataDir+"/404.json", &Error404Data); err != nil {
+			return
+		}
 	}
 
-	if err = fileGetContents(cfg.DataDir+"/dist.json", &DistData); err != nil {
-		return
+	if _, err = os.Stat(cfg.DataDir + "/dist.json"); err == nil {
+		if err = fileGetContents(cfg.DataDir+"/dist.json", &DistData); err != nil {
+			return
+		}
 	}
 
 	var mainPack *MainPackage
@@ -54,6 +62,16 @@ func run(cfg Config) (err error) {
 		return
 	}
 	incs := mainPack.ProviderIncludeURLs()
+
+	//go func() {
+	//	tk := time.NewTicker(5 * time.Second)
+	//	for {
+	//		select {
+	//		case <-tk.C:
+	//			log.Printf("remaining tasks: %d\n", Remaining.Load())
+	//		}
+	//	}
+	//}()
 
 	var wg sync.WaitGroup
 	wg.Add(len(incs))
@@ -70,6 +88,10 @@ func run(cfg Config) (err error) {
 	}
 	wg.Wait()
 
+	if err = saveDistData(cfg); err != nil {
+		return
+	}
+
 	if err = filePutContents(cfg.DataDir+"/404.json", Error404Data); err != nil {
 		return
 	}
@@ -78,61 +100,86 @@ func run(cfg Config) (err error) {
 		return
 	}
 
+	mainPack.Mirrors = []Mirror{
+		{
+			DistURL:   cfg.DistURL,
+			Preferred: true,
+		},
+	}
+	mainPack.MetadataURL = cfg.MetadataURL
+	mainPack.ProvidersURL = cfg.ProvidersURL
+	mainPack.Time = time.Now()
+	if err = filePutContents(cfg.DataDir+"/packages.json", mainPack); err != nil {
+		return
+	}
+
 	return nil
 }
 
-func processProvider(mainPack *MainPackage, cfg Config, purl string) (err error) {
+func processProvider(mainPack *MainPackage, cfg Config, providerUrl string) (err error) {
 	var rsp *http.Response
-	rsp, err = http.Get(cfg.Mirror + purl)
+	rsp, err = http.Get(cfg.Mirror + providerUrl)
 	if err != nil {
+		return
+	}
+	defer rsp.Body.Close()
+
+	var data []byte
+	if data, err = ioutil.ReadAll(rsp.Body); err != nil {
 		return
 	}
 
 	var provider Provider
-	if err = json.NewDecoder(rsp.Body).Decode(&provider); err != nil {
+	if err = json.Unmarshal(data, &provider); err != nil {
 		return
 	}
-	names, urls := provider.PackageURLs(mainPack.MetadataURL)
-	log.Printf("provider: %s nums: %d", purl, len(urls))
+	names, urls, hashs := provider.PackageURLs(mainPack.MetadataURL)
+	urls = urls[:10]
+
+	log.Printf("provider: %s nums: %d", providerUrl, len(urls))
 	Remaining.Add(int32(len(urls)))
 
 	wp := workpool.New(30)
 	for n, u := range urls {
 		name := names[n]
+		hash := hashs[n]
 		if _, ok := Error404Data[name]; ok {
 			continue
 		}
 		url := cfg.Mirror + u
-		wp.Do(doWorker(cfg, name, url))
+		wp.Do(doWorker(cfg, mainPack, name, url, hash))
 	}
 	wp.Wait()
+
+	if cfg.Dump {
+		if err = filePutContents(cfg.DataDir+providerUrl, data); err != nil {
+			return
+		}
+	}
 
 	return nil
 }
 
-func doWorker(cfg Config, name, url string) workpool.TaskHandler {
+func doWorker(cfg Config, mainpack *MainPackage, name, url, hash string) workpool.TaskHandler {
 	return func() error {
 		start := time.Now()
 
 		var err error
 		defer func() {
 			Remaining.Sub(1)
-			if err != nil {
-				if err == ErrNotFound {
-					lock404.Lock()
-					Error404Data[name] = true
-					lock404.Unlock()
-				}
-
-				if cfg.Verbose {
-					latency := time.Now().Sub(start)
-					log.Printf("url: %s latency: %s err: %s\n", url, latency, err)
-				}
+			if err == ErrNotFound {
+				lock404.Lock()
+				Error404Data[name] = true
+				lock404.Unlock()
+			}
+			if cfg.Verbose {
+				log.Printf("url: %s latency: %s err: %s\n", url, time.Now().Sub(start), err)
 			}
 		}()
 
 		var rsp *http.Response
 		var req *http.Request
+		var reader io.ReadCloser
 		if req, err = http.NewRequest("GET", url, nil); err != nil {
 			return nil
 		}
@@ -149,11 +196,11 @@ func doWorker(cfg Config, name, url string) workpool.TaskHandler {
 		}
 		lockDist.Unlock()
 
-		if rsp, err = httpGet(cfg, req); err != nil {
+		if rsp, reader, err = httpGet(cfg, req); err != nil {
 			log.Printf("name: %s err: %s", name, err)
 			return nil
 		}
-		defer rsp.Body.Close()
+		defer reader.Close()
 
 		if rsp.StatusCode == http.StatusNotFound {
 			err = ErrNotFound
@@ -175,8 +222,27 @@ func doWorker(cfg Config, name, url string) workpool.TaskHandler {
 			return nil
 		}
 
+		var data []byte
+		if data, err = ioutil.ReadAll(reader); err != nil {
+			return nil
+		}
+
+		if cfg.Dump {
+			// metadata
+			metadataFile := strings.ReplaceAll(mainpack.MetadataURL, "%package%", name)
+			if err = filePutContents(cfg.DataDir+"/"+metadataFile, data); err != nil {
+				return nil
+			}
+
+			// provider
+			providersUrl := strings.ReplaceAll(strings.ReplaceAll(mainpack.ProvidersURL, "%package%", name), "%hash%", hash)
+			if err = filePutContents(cfg.DataDir+"/"+providersUrl, data); err != nil {
+				return nil
+			}
+		}
+
 		var m Metadata
-		if err = json.NewDecoder(rsp.Body).Decode(&m); err != nil {
+		if err = json.Unmarshal(data, &m); err != nil {
 			return nil
 		}
 
@@ -212,27 +278,41 @@ func doWorker(cfg Config, name, url string) workpool.TaskHandler {
 }
 
 func fetchMainResponse(cfg Config) (pkg *MainPackage, err error) {
+	log.Printf("fetch main packages.json: %s\n", cfg.getMainUrl())
+
 	var req *http.Request
-	var rsp *http.Response
+	var reader io.ReadCloser
+
 	if req, err = http.NewRequest("GET", cfg.getMainUrl(), nil); err != nil {
 		return
 	}
-	if rsp, err = httpGet(cfg, req); err != nil {
+	if _, reader, err = httpGet(cfg, req); err != nil {
 		return
 	}
-	defer rsp.Body.Close()
+	defer reader.Close()
 
 	pkg = new(MainPackage)
-	err = json.NewDecoder(rsp.Body).Decode(pkg)
+	err = json.NewDecoder(reader).Decode(pkg)
 	return
 }
 
-func httpGet(cfg Config, req *http.Request) (rsp *http.Response, err error) {
+func httpGet(cfg Config, req *http.Request) (rsp *http.Response, reader io.ReadCloser, err error) {
 	client := http.Client{}
+	req.Header.Add("Accept-Encoding", "gzip")
+
 	for i := 0; i < cfg.Attempts; i++ {
 		if rsp, err = client.Do(req); err != nil {
-			time.Sleep(backoff(i + 1))
+			n := backoff(i + 1)
+			log.Printf("%s backoff: %s", req.URL, n)
+			time.Sleep(n)
 			continue
+		}
+
+		switch rsp.Header.Get("Content-Encoding") {
+		case "gzip":
+			reader, err = gzip.NewReader(rsp.Body)
+		default:
+			reader = rsp.Body
 		}
 		break
 	}
@@ -247,6 +327,8 @@ func backoff(attempts int) time.Duration {
 }
 
 func fileGetContents(file string, v interface{}) error {
+	log.Printf("load file: %s into: %v\n", file, v)
+
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		return err
@@ -258,19 +340,54 @@ func fileGetContents(file string, v interface{}) error {
 	return nil
 }
 
-func filePutContents(file string, v interface{}) error {
-	fp, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE, 0)
-	if err != nil {
-		return err
-	}
-	defer fp.Close()
+func filePutContents(file string, v interface{}) (err error) {
+	log.Printf("write file: %s\n", file)
 
-	data, err := json.Marshal(v)
-	if err != nil {
+	if p := strings.LastIndex(file, "/"); p > 0 {
+		path := file[0:p]
+		if _, err = os.Stat(path); os.IsNotExist(err) {
+			log.Printf("create directory: %s", path)
+			if err = os.MkdirAll(file[0:p], 0755); err != nil {
+				return err
+			}
+		}
+	}
+
+	var data []byte
+	if b, ok := v.([]byte); ok {
+		data = b
+	} else if s, ok := v.(string); ok {
+		data = []byte(s)
+	} else {
+		if data, err = json.Marshal(v); err != nil {
+			return err
+		}
+	}
+
+	if err = ioutil.WriteFile(file, data, 0755); err != nil {
 		return err
 	}
-	if _, err = fp.Write(data); err != nil {
-		return err
+	return nil
+}
+
+func saveDistData(cfg Config) (err error) {
+	client := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
+		Password: cfg.Redis.Password,
+	})
+
+	for name, dist := range DistData {
+		values := map[string]interface{}{
+			"etag":         dist.ETag,
+			"lastModified": dist.LastModified,
+		}
+		for v, meta := range dist.Metadata {
+			s, _ := json.Marshal(meta)
+			values[v] = string(s)
+		}
+		if err = client.HSet(name, values).Err(); err != nil {
+			return
+		}
 	}
 	return nil
 }
