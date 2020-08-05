@@ -392,7 +392,7 @@ func saveDistData(cfg Config) (err error) {
 			s, _ := json.Marshal(meta)
 			values[v] = string(s)
 		}
-		if err = client.HSet(name, values).Err(); err != nil {
+		if err = client.HMSet(name, values).Err(); err != nil {
 			return
 		}
 	}
