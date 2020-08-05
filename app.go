@@ -2,6 +2,7 @@ package main
 
 import (
 	"compress/gzip"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -164,7 +165,7 @@ func processProvider(mainPack *MainPackage, cfg Config, providerUrl string) (err
 	return nil
 }
 
-func doWorker(cfg Config, mainpack *MainPackage, name, url, hash string) workpool.TaskHandler {
+func doWorker(cfg Config, mainpack *MainPackage, name, url, sum string) workpool.TaskHandler {
 	return func() error {
 		start := time.Now()
 
@@ -231,6 +232,13 @@ func doWorker(cfg Config, mainpack *MainPackage, name, url, hash string) workpoo
 			return nil
 		}
 
+		// checksum
+		if !sha256Checksum(data, sum) {
+			log.Printf("%s sha256 check failed. expect: %s", url, sum)
+			// Do nothing
+			return nil
+		}
+
 		if cfg.Dump {
 			// metadata
 			metadataFile := strings.ReplaceAll(mainpack.MetadataURL, "%package%", name)
@@ -239,7 +247,7 @@ func doWorker(cfg Config, mainpack *MainPackage, name, url, hash string) workpoo
 			}
 
 			// provider
-			providersUrl := strings.ReplaceAll(strings.ReplaceAll(mainpack.ProvidersURL, "%package%", name), "%hash%", hash)
+			providersUrl := strings.ReplaceAll(strings.ReplaceAll(mainpack.ProvidersURL, "%package%", name), "%hash%", sum)
 			if err = filePutContents(cfg.DataDir+"/"+providersUrl, data); err != nil {
 				return nil
 			}
@@ -279,6 +287,12 @@ func doWorker(cfg Config, mainpack *MainPackage, name, url, hash string) workpoo
 
 		return nil
 	}
+}
+
+func sha256Checksum(data []byte, sum string) bool {
+	h := sha256.New()
+	h.Write(data)
+	return fmt.Sprintf("%x", h.Sum(nil)) == sum
 }
 
 func fetchMainResponse(cfg Config) (pkg *MainPackage, err error) {
