@@ -141,7 +141,7 @@ func processProvider(mainPack *MainPackage, cfg Config, providerUrl string) (err
 	names, urls, hashs := provider.PackageURLs(mainPack.MetadataURL)
 
 	log.Printf("provider: %s nums: %d\n", providerUrl, len(urls))
-	wp := workpool.New(30)
+	wp := workpool.New(cfg.Concurrency)
 	lock404.Lock()
 	for n, u := range urls {
 		name := names[n]
