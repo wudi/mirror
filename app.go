@@ -138,7 +138,6 @@ func processProvider(mainPack *MainPackage, cfg Config, providerUrl string) (err
 		return
 	}
 	names, urls, hashs := provider.PackageURLs(mainPack.MetadataURL)
-	urls = urls[:10]
 
 	log.Printf("provider: %s nums: %d\n", providerUrl, len(urls))
 	Remaining.Add(int32(len(urls)))
