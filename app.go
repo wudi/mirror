@@ -143,6 +143,7 @@ func processProvider(mainPack *MainPackage, cfg Config, providerUrl string) (err
 	Remaining.Add(int32(len(urls)))
 
 	wp := workpool.New(30)
+	lock404.Lock()
 	for n, u := range urls {
 		name := names[n]
 		hash := hashs[n]
@@ -152,6 +153,7 @@ func processProvider(mainPack *MainPackage, cfg Config, providerUrl string) (err
 		url := cfg.Mirror + u
 		wp.Do(doWorker(cfg, mainPack, name, url, hash))
 	}
+	lock404.Unlock()
 	wp.Wait()
 
 	if cfg.Dump {
