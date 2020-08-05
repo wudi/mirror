@@ -375,6 +375,7 @@ func saveDistData(cfg Config) (err error) {
 		Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
 		Password: cfg.Redis.Password,
 	})
+	defer client.Close()
 
 	for name, dist := range DistData {
 		values := map[string]interface{}{
