@@ -1,4 +1,4 @@
-module packagist
+module github.com/wudi/mirror
 
 go 1.14
 
