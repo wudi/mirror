@@ -228,7 +228,9 @@ func doWorker(cfg Config, name, url, sum string) workpool.TaskHandler {
 		}
 
 		if rsp.StatusCode == http.StatusNotModified {
-			//log.Printf("%s not modified", name)
+			if cfg.Verbose {
+				log.Printf("%s not modified\n", name)
+			}
 			return nil
 		}
 
